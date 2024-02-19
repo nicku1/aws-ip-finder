@@ -1,4 +1,4 @@
-package aws_ip_finder
+package main
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 )
 
 type VPC struct {
@@ -24,14 +22,9 @@ type Subnet struct {
 }
 
 func isInSubnet(subnet *Subnet, ip string) bool {
-	cidrSplit := strings.Split(subnet.subnetCidr, "/")
-	maskLength, err := strconv.Atoi(cidrSplit[1])
+	_, subnetNet, err := net.ParseCIDR(subnet.subnetCidr)
 	if err != nil {
 		log.Fatal(err)
-	}
-	subnetNet := net.IPNet{
-		IP:   net.ParseIP(cidrSplit[0]),
-		Mask: make(net.IPMask, maskLength),
 	}
 
 	return subnetNet.Contains(net.ParseIP(ip))
@@ -72,6 +65,7 @@ func main() {
 	}
 
 	vpcMap := make(map[string]VPC)
+	vpcIdList := make([]string, 0)
 
 	for _, v := range vpcs.Vpcs {
 		var vpcName string
@@ -82,13 +76,21 @@ func main() {
 			}
 			vpcName = ""
 		}
+		vpcIdList = append(vpcIdList, *v.VpcId)
 		vpcMap[*v.VpcId] = VPC{
 			vpcName: vpcName,
 		}
 	}
 
-	//todo list of filters with vpc ids
-	subnets, err := client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{})
+	filter = "vpc-id"
+	subnets, err := client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{
+		Filters: []types.Filter{
+			{
+				Name:   &filter,
+				Values: vpcIdList,
+			},
+		},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,4 +113,13 @@ func main() {
 			subnetCidr: *v.CidrBlock,
 		}
 	}
+
+	for _, subnet := range subnetArray {
+		if isInSubnet(&subnet, os.Args[1]) {
+			println("VPC: " + vpcMap[subnet.vpcId].vpcName)
+			println("Subnet: " + subnet.subnetName)
+			os.Exit(0)
+		}
+	}
+	println("Not found")
 }
