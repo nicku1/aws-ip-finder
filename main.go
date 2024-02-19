@@ -42,6 +42,12 @@ func validateIp(ip string) {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		println("Usage: ", os.Args[0], "<IPv4>")
+		println("Example: ", os.Args[0], "10.0.13.57")
+		os.Exit(1)
+	}
+
 	validateIp(os.Args[1])
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
