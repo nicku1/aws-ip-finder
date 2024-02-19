@@ -120,10 +120,30 @@ func main() {
 		}
 	}
 
+	filter = "addresses.private-ip-address"
+	interfaces, err := client.DescribeNetworkInterfaces(context.TODO(), &ec2.DescribeNetworkInterfacesInput{
+		Filters: []types.Filter{
+			{
+				Name: &filter,
+				Values: []string{
+					os.Args[1],
+				},
+			},
+		},
+	})
+
 	for _, subnet := range subnetArray {
 		if isInSubnet(&subnet, os.Args[1]) {
 			println("VPC: " + vpcMap[subnet.vpcId].vpcName)
 			println("Subnet: " + subnet.subnetName)
+			if len(interfaces.NetworkInterfaces) > 0 {
+				if interfaces.NetworkInterfaces[0].Attachment.InstanceId != nil {
+					println("Resource: ", *interfaces.NetworkInterfaces[0].Attachment.InstanceId)
+				}
+				if interfaces.NetworkInterfaces[0].Description != nil {
+					println("Resource desc: ", *interfaces.NetworkInterfaces[0].Description)
+				}
+			}
 			os.Exit(0)
 		}
 	}
